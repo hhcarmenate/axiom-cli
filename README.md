@@ -4,17 +4,39 @@ CLI orchestrator for the axiom ecosystem — bootstrap AI-ready projects in one 
 
 ## What it does
 
-`axiom` ties together three components that live in `~/AI-Ecosystem/`:
+`axiom` clones and manages three components from GitHub and wires them together on your machine:
 
-| Component | Role |
-|---|---|
-| **continuum** | Persistent memory system (postgres + redis + MCP server) |
-| **axiom-team** | 7 specialised AI agents + project templates |
-| **axiom-skills** | 15 skill definition files (react, tailwindcss, postgresql, …) |
+| Component | Repository | Role |
+|---|---|---|
+| **continuum** | [hhcarmenate/continuum](https://github.com/hhcarmenate/continuum) | Persistent memory system (postgres + redis + MCP server) |
+| **axiom-team** | [hhcarmenate/axiom-team](https://github.com/hhcarmenate/axiom-team) | 7 specialised AI agents + project templates |
+| **axiom-skills** | [hhcarmenate/axiom-skills](https://github.com/hhcarmenate/axiom-skills) | 15 skill definition files (react, tailwindcss, postgresql, …) |
+
+## How it works
+
+axiom has two layers — one global, one per project:
+
+```
+~/AI-Ecosystem/          ← cloned once per machine (global)
+├── continuum/           ← postgres + redis + MCP server (shared across all projects)
+├── axiom-team/          ← agent definitions (source of truth)
+└── axiom-skills/        ← skill definitions (source of truth)
+
+your-project/            ← your actual project
+└── .axiom/              ← installed by axiom new / axiom install (per project)
+    ├── agents/          ← copied from axiom-team
+    └── skills/          ← copied from axiom-skills
+```
+
+`axiom init` sets up the global layer once. `axiom new` / `axiom install` set up the
+per-project layer. Continuum's memory is shared across all projects by design — that is
+what gives your AI agents persistent context across sessions and codebases.
+
+By default the repos are cloned into `~/AI-Ecosystem/`. You can override this with `--ecosystem-root`.
 
 ## Installation
 
-**Requirements:** Python 3.12+, [uv](https://docs.astral.sh/uv/)
+**Requirements:** Python 3.12+, [uv](https://docs.astral.sh/uv/), Docker
 
 ```bash
 # from the axiom-cli directory
@@ -26,8 +48,8 @@ This installs the `axiom` binary globally.
 ## Quick start
 
 ```bash
-# 1. One-time machine setup — starts continuum, verifies MCP
-axiom init
+# 1. One-time machine setup — clones ecosystem repos, starts continuum, verifies MCP
+axiom init --clone
 
 # 2. Create a new project
 axiom new my-app
@@ -42,7 +64,7 @@ axiom install --skills react,typescript
 # 5. Health check
 axiom status
 
-# 6. Pull latest ecosystem updates
+# 6. Pull latest updates from GitHub
 axiom update
 
 # 7. Diagnose problems
@@ -51,11 +73,12 @@ axiom doctor
 
 ## Commands
 
-### `axiom init [--ecosystem-root PATH]`
+### `axiom init [--clone] [--ecosystem-root PATH]`
 
-Run once per machine. Starts continuum containers, waits for postgres and redis to be
-healthy, verifies the continuum MCP server, and prints per-agent MCP configuration
-instructions.
+Run once per machine. Checks that the three ecosystem repos are present locally and, with
+`--clone`, clones any that are missing directly from GitHub. Then starts continuum
+containers, waits for postgres and redis to be healthy, verifies the continuum MCP server,
+and prints per-agent MCP configuration instructions.
 
 Pass `--ecosystem-root` to override the default `~/AI-Ecosystem` path (saved to
 `~/.axiom/config.yaml`).
@@ -89,8 +112,9 @@ Prints a health-check table:
 
 ### `axiom update`
 
-Runs `git pull` in each of the three ecosystem repos. If the current directory has
-`.axiom/` installed, suggests running `axiom install --force` to pick up changes.
+Runs `git pull` in each of the three ecosystem repos, fetching the latest changes from
+GitHub. If the current directory has `.axiom/` installed, suggests running
+`axiom install --force` to pick up changes.
 
 ### `axiom doctor`
 
@@ -108,7 +132,7 @@ ecosystem_root: ~/AI-Ecosystem
 Override the ecosystem path:
 
 ```bash
-axiom init --ecosystem-root /path/to/my/AI-Ecosystem
+axiom init --ecosystem-root /path/to/my/ecosystem
 ```
 
 ## Development
